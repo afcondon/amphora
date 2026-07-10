@@ -11,6 +11,7 @@
 -- |   GET  /morphisms?from=…&to=…           → [morphism]
 -- |   POST /favorites {contentHash, collection} → {ok}
 -- |   GET  /favorites?collection=…          → [favorite]
+-- |   DELETE /favorites?hash=…&collection=… → {ok}   (unpublish; content stays)
 -- |
 -- | The BEAM rig never touches this — it's an editor-side store.
 module Amphora.Main where
@@ -202,7 +203,7 @@ parseFavorite raw = do
 corsHeaders :: ResponseHeaders
 corsHeaders = headers
   { "Access-Control-Allow-Origin": "*"
-  , "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+  , "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS"
   , "Access-Control-Allow-Headers": "Content-Type"
   }
 
@@ -210,7 +211,7 @@ jsonCors :: ResponseHeaders
 jsonCors = headers
   { "Content-Type": "application/json"
   , "Access-Control-Allow-Origin": "*"
-  , "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+  , "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS"
   , "Access-Control-Allow-Headers": "Content-Type"
   }
 
@@ -290,6 +291,13 @@ mkRouter db { route: r, method, body, query } = case method of
           Right f -> do
             Store.addFavorite db f
             ok' jsonCors okJson
+      -- unpublish: DELETE /favorites?hash=<h>&collection=<c> removes the content
+      -- from that collection (content + labels stay addressable).
+      Delete -> case qparam query "hash", qparam query "collection" of
+        Just h, Just c -> do
+          Store.removeFavorite db { contentHash: h, collection: c }
+          ok' jsonCors okJson
+        _, _ -> badRequest' jsonCors (errJson "DELETE /favorites needs ?hash= and ?collection=")
       _ -> notAllowed
   where
   sendJson j = ok' jsonCors (AJ.stringify j)

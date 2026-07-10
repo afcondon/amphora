@@ -23,6 +23,7 @@ module Amphora.Store
   , addMorphism
   , listMorphisms
   , addFavorite
+  , removeFavorite
   , listFavorites
   ) where
 
@@ -260,6 +261,14 @@ listMorphisms db mFrom mTo = do
 addFavorite :: Database -> Favorite -> Aff Unit
 addFavorite db fav =
   DB.run db "INSERT INTO favorite (content_hash, collection) VALUES (?, ?)"
+    [ DB.param fav.contentHash, DB.param fav.collection ]
+
+-- | Remove a content from a collection — "unpublish". The content and its
+-- | labels stay addressable; it just leaves the curated set (e.g. drops out of
+-- | the instrument picker). Curation is mutable; content is not.
+removeFavorite :: Database -> Favorite -> Aff Unit
+removeFavorite db fav =
+  DB.run db "DELETE FROM favorite WHERE content_hash = ? AND collection = ?"
     [ DB.param fav.contentHash, DB.param fav.collection ]
 
 listFavorites :: Database -> Maybe String -> Aff (Array Favorite)
