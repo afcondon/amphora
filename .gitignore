@@ -1,0 +1,8 @@
+node_modules/
+output/
+.spago/
+.psci_modules/
+db/*.duckdb
+db/*.duckdb.wal
+*.log
+.DS_Store

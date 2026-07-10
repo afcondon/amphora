@@ -1,0 +1,14 @@
+{
+  "name": "amphora",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The Atlantis artefact store — a content-addressed DuckDB library the browser editors read and write over HTTP. Immutable content by hash, mutable labels, a morphism graph, and the universe of scales.",
+  "scripts": {
+    "build": "spago build",
+    "serve": "node run.js"
+  },
+  "dependencies": {
+    "duckdb": "^1.4.4"
+  }
+}

@@ -1,0 +1,32 @@
+workspace:
+  packageSet:
+    registry: 73.3.0
+  extraPackages:
+    httpurple:
+      path: ../../../purescript-httpurple-ws
+
+package:
+  name: amphora-server
+  description: Content-addressed artefact store for the Atlantis live-coding rig — DuckDB + HTTPurple/Node HTTP API on :3024.
+  dependencies:
+    - aff
+    - aff-promise
+    - argonaut-core
+    - arrays
+    - console
+    - effect
+    - either
+    - foldable-traversable
+    - foreign
+    - foreign-object
+    - httpurple
+    - integers
+    - maybe
+    - node-buffer
+    - node-fs
+    - node-process
+    - nullable
+    - prelude
+    - strings
+    - transformers
+    - tuples
