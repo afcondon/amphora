@@ -6,3 +6,4 @@ db/*.duckdb
 db/*.duckdb.wal
 *.log
 .DS_Store
+.direnv/
