@@ -12,6 +12,13 @@
 -- |   POST /favorites {contentHash, collection} → {ok}
 -- |   GET  /favorites?collection=…          → [favorite]
 -- |   DELETE /favorites?hash=…&collection=… → {ok}   (unpublish; content stays)
+-- |   GET  /refs?prefix=…                   → [{name, hash, movedAt}]
+-- |   GET  /refs/:name…                     → {name, hash, movedAt}   (404 if none)
+-- |   POST /refs/:name… {to, expected}      → {name, hash, movedAt}
+-- |                                            409 {error, current}  if it had moved
+-- |   GET  /moves?ref=…                     → [{name, from, to, movedAt}]  oldest first
+-- |
+-- | A ref name may contain `/` (`conspicillum/library`).
 -- |
 -- | The BEAM rig never touches this — it's an editor-side store.
 module Amphora.Main where
@@ -25,6 +32,7 @@ import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..), note)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.String (joinWith)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
@@ -49,7 +57,7 @@ import HTTPurple.Status as Status
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync (readTextFile)
 import Node.Process as Process
-import Routing.Duplex (RouteDuplex', root, segment)
+import Routing.Duplex (RouteDuplex', rest, root, segment)
 import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/))
 import Data.Generic.Rep (class Generic)
@@ -65,6 +73,9 @@ data Route
   | LabelsRoute
   | MorphismsRoute
   | FavoritesRoute
+  | RefsColl
+  | RefOne (Array String)
+  | MovesRoute
 
 derive instance Generic Route _
 
@@ -76,6 +87,9 @@ route = root $ sum
   , "LabelsRoute": "labels" / noArgs
   , "MorphismsRoute": "morphisms" / noArgs
   , "FavoritesRoute": "favorites" / noArgs
+  , "RefsColl": "refs" / noArgs
+  , "RefOne": "refs" / rest
+  , "MovesRoute": "moves" / noArgs
   }
 
 -- ============================================================
@@ -134,6 +148,21 @@ encFavorite :: Store.Favorite -> AJ.Json
 encFavorite f = obj
   [ Tuple "contentHash" (jStr f.contentHash)
   , Tuple "collection" (jStr f.collection)
+  ]
+
+encRef :: Store.Ref -> AJ.Json
+encRef r = obj
+  [ Tuple "name" (jStr r.name)
+  , Tuple "hash" (jStr r.hash)
+  , Tuple "movedAt" (jMaybe r.movedAt)
+  ]
+
+encRefMove :: Store.RefMove -> AJ.Json
+encRefMove m = obj
+  [ Tuple "name" (jStr m.name)
+  , Tuple "from" (jMaybe m.from)
+  , Tuple "to" (jStr m.to)
+  , Tuple "movedAt" (jMaybe m.movedAt)
   ]
 
 errJson :: String -> String
@@ -195,6 +224,13 @@ parseFavorite raw = do
   contentHash <- note "missing field: contentHash" (getStr "contentHash" o)
   collection <- note "missing field: collection" (getStr "collection" o)
   pure { contentHash, collection }
+
+-- | `{to, expected}`; an absent or null `expected` means "create it".
+parseMove :: String -> Either String { to :: String, expected :: Maybe String }
+parseMove raw = do
+  o <- asObject raw
+  to <- note "missing field: to" (getStr "to" o)
+  pure { to, expected: getStr "expected" o }
 
 -- ============================================================
 -- CORS
@@ -298,6 +334,44 @@ mkRouter db { route: r, method, body, query } = case method of
           Store.removeFavorite db { contentHash: h, collection: c }
           ok' jsonCors okJson
         _, _ -> badRequest' jsonCors (errJson "DELETE /favorites needs ?hash= and ?collection=")
+      _ -> notAllowed
+
+    RefsColl -> case method of
+      Get -> do
+        refs <- Store.listRefs db (fromMaybe "" (qparam query "prefix"))
+        sendJson (AJ.fromArray (map encRef refs))
+      _ -> notAllowed
+
+    RefOne [] -> badRequest' jsonCors (errJson "a ref needs a name: /refs/<name>")
+    RefOne segments -> do
+      let name = joinWith "/" segments
+      case method of
+        Get -> do
+          found <- Store.getRef db name
+          case found of
+            Nothing -> response' Status.notFound jsonCors (errJson "no such ref")
+            Just ref -> sendJson (encRef ref)
+        Post -> do
+          raw <- toString body
+          case parseMove raw of
+            Left e -> badRequest' jsonCors (errJson e)
+            Right { to, expected } -> do
+              moved <- Store.moveRef db { name, to, expected }
+              case moved of
+                Store.Moved ref -> sendJson (encRef ref)
+                Store.NoSuchContent -> response' Status.notFound jsonCors (errJson "no such content")
+                Store.Stale current -> response' Status.conflict jsonCors $ AJ.stringify $ obj
+                  [ Tuple "error" (jStr "the ref has moved")
+                  , Tuple "current" (maybe AJ.jsonNull encRef current)
+                  ]
+        _ -> notAllowed
+
+    MovesRoute -> case method of
+      Get -> case qparam query "ref" of
+        Nothing -> badRequest' jsonCors (errJson "GET /moves needs ?ref=")
+        Just name -> do
+          moves <- Store.listRefMoves db name
+          sendJson (AJ.fromArray (map encRefMove moves))
       _ -> notAllowed
   where
   sendJson j = ok' jsonCors (AJ.stringify j)

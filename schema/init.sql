@@ -8,6 +8,10 @@
 --   morphism — the derivation graph; edges you navigate instead of folders.
 --   favorite — curation, e.g. the `scale-picker` collection populates the
 --              instrument pickers.
+--   ref      — a name that points at one content and can be moved, git's
+--              refs. Moves are compare-and-swap; each is logged in ref_move
+--              (and recorded as a morphism `ref:<name>`), so a ref's history
+--              is the ordered list of where it has pointed.
 --
 -- Idempotent: safe to run on every server start.
 
@@ -48,7 +52,21 @@ CREATE TABLE IF NOT EXISTS favorite (
   collection   TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS ref (
+  name     TEXT PRIMARY KEY,
+  hash     TEXT NOT NULL,
+  moved_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS ref_move (
+  name      TEXT NOT NULL,
+  from_hash TEXT,
+  to_hash   TEXT NOT NULL,
+  moved_at  TIMESTAMP DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_label_hash    ON label (content_hash);
 CREATE INDEX IF NOT EXISTS idx_morphism_from ON morphism (from_hash);
 CREATE INDEX IF NOT EXISTS idx_morphism_to   ON morphism (to_hash);
 CREATE INDEX IF NOT EXISTS idx_favorite_coll ON favorite (collection);
+CREATE INDEX IF NOT EXISTS idx_ref_move_name ON ref_move (name);

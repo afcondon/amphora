@@ -22,6 +22,10 @@ Three relations plus curation:
   pitch-class set carries many scale names)
 - **morphism** — the derivation graph `(from → to, kind)`
 - **favorite** — curation, e.g. `scale-picker` populates the instrument pickers
+- **ref** — a name that points at one content and can be moved (git's refs):
+  compare-and-swap, so a writer who lost a race is told where the ref is now
+  and can make its change again on top. Every move is logged and recorded as
+  the morphism `ref:<name>`. Names are namespaced by app (`conspicillum/library`).
 
 ## Run
 
@@ -48,6 +52,11 @@ The schema (`schema/init.sql`) is applied idempotently on every start.
 | GET  | `/morphisms?from=…&to=…` | | `[morphism]` |
 | POST | `/favorites` | `{contentHash, collection}` | `{ok}` |
 | GET  | `/favorites?collection=…` | | `[favorite]` |
+| DELETE | `/favorites?hash=…&collection=…` | | `{ok}` (unpublish; the content stays) |
+| GET  | `/refs?prefix=…` | | `[{name, hash, movedAt}]` |
+| GET  | `/refs/<name>` | | `{name, hash, movedAt}`, or 404 |
+| POST | `/refs/<name>` | `{to, expected}` (`expected` null or absent: create) | `{name, hash, movedAt}`; **409** `{error, current}` if it had moved; 404 if `to` is not stored content |
+| GET  | `/moves?ref=<name>` | | `[{name, from, to, movedAt}]`, oldest first |
 
 `params` on a morphism is any JSON value, stored in canonical string form.
 

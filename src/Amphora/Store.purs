@@ -3,7 +3,7 @@
 -- | `putContent` is the keystone: it hashes the canonical payload, and if
 -- | that hash is already present it does nothing and reports `deduped`.
 -- | Content is never updated in place — an "edit" is new content plus a
--- | re-pointed label (see `addLabel`). Labels, morphisms and favourites are
+-- | moved ref (see `moveRef`). Labels, morphisms, favourites and refs are
 -- | the mutable, human-facing layer on top of the immutable content table.
 module Amphora.Store
   ( Content
@@ -25,6 +25,13 @@ module Amphora.Store
   , addFavorite
   , removeFavorite
   , listFavorites
+  , Ref
+  , RefMove
+  , Move(..)
+  , getRef
+  , listRefs
+  , moveRef
+  , listRefMoves
   ) where
 
 import Prelude
@@ -283,6 +290,94 @@ listFavorites db mColl = do
     contentHash <- DB.readField "content_hash" row
     collection <- DB.readField "collection" row
     pure { contentHash, collection }
+
+-- ============================================================
+-- Refs — names that point at one content and can be moved
+-- ============================================================
+
+type Ref =
+  { name :: String
+  , hash :: String
+  , movedAt :: Maybe String
+  }
+
+type RefMove =
+  { name :: String
+  , from :: Maybe String
+  , to :: String
+  , movedAt :: Maybe String
+  }
+
+-- | What became of an attempt to move a ref.
+-- |
+-- | - `Moved`: it now points where asked.
+-- | - `Stale`: it no longer pointed where the writer expected (someone else
+-- |   moved it first, or created it, or it does not exist yet). Carries the
+-- |   ref as it is, so the writer can merge and try again.
+-- | - `NoSuchContent`: a ref may only point at content the store holds.
+data Move
+  = Moved Ref
+  | Stale (Maybe Ref)
+  | NoSuchContent
+
+getRef :: Database -> String -> Aff (Maybe Ref)
+getRef db name = do
+  rows <- DB.queryAllParams db "SELECT name, hash, moved_at FROM ref WHERE name = ?" [ DB.param name ]
+  pure (DB.firstRow rows >>= decodeRef)
+
+-- | Every ref whose name starts with the prefix (all of them for "").
+listRefs :: Database -> String -> Aff (Array Ref)
+listRefs db prefix = do
+  rows <- DB.queryAllParams db
+    "SELECT name, hash, moved_at FROM ref WHERE starts_with(name, ?) ORDER BY name"
+    [ DB.param prefix ]
+  pure (mapMaybe decodeRef rows)
+
+decodeRef :: Row -> Maybe Ref
+decodeRef row = do
+  name <- DB.readField "name" row
+  hash <- DB.readField "hash" row
+  pure { name, hash, movedAt: DB.readField "moved_at" row }
+
+-- | Move a ref, compare-and-swap: only if it still points at `expected`
+-- | (`Nothing`: only if it does not exist yet). Each check-and-write is a
+-- | single statement, so two writers cannot both win. A move is logged in
+-- | `ref_move` and, when it leaves one content for another, recorded as the
+-- | morphism `ref:<name>`.
+moveRef :: Database -> { name :: String, to :: String, expected :: Maybe String } -> Aff Move
+moveRef db { name, to, expected } = do
+  target <- DB.queryAllParams db "SELECT 1 AS x FROM content WHERE hash = ?" [ DB.param to ]
+  if DB.isEmpty target then pure NoSuchContent
+  else do
+    rows <- case expected of
+      Nothing -> DB.queryAllParams db
+        "INSERT INTO ref (name, hash) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING name, hash, moved_at"
+        [ DB.param name, DB.param to ]
+      Just old -> DB.queryAllParams db
+        "UPDATE ref SET hash = ?, moved_at = now() WHERE name = ? AND hash = ? RETURNING name, hash, moved_at"
+        [ DB.param to, DB.param name, DB.param old ]
+    case DB.firstRow rows >>= decodeRef of
+      Nothing -> Stale <$> getRef db name
+      Just ref -> do
+        when (expected /= Just to) do
+          DB.run db "INSERT INTO ref_move (name, from_hash, to_hash) VALUES (?, ?, ?)"
+            [ DB.param name, DB.paramN expected, DB.param to ]
+          for_ expected \old ->
+            addMorphism db { fromHash: old, toHash: to, kind: "ref:" <> name, params: Nothing }
+        pure (Moved ref)
+
+-- | Where a ref has pointed, oldest first.
+listRefMoves :: Database -> String -> Aff (Array RefMove)
+listRefMoves db name = do
+  rows <- DB.queryAllParams db
+    "SELECT name, from_hash, to_hash, moved_at FROM ref_move WHERE name = ? ORDER BY moved_at"
+    [ DB.param name ]
+  pure (mapMaybe decodeMove rows)
+  where
+  decodeMove row = do
+    n <- DB.readField "name" row
+    to <- DB.readField "to_hash" row
+    pure { name: n, from: DB.readField "from_hash" row, to, movedAt: DB.readField "moved_at" row }
 
 -- ============================================================
 -- Helpers
