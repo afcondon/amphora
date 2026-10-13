@@ -1,9 +1,7 @@
 workspace:
   packageSet:
     registry: 77.13.1
-  extraPackages:
-    httpurple:
-      path: ../../../purescript-httpurple-ws
+  extraPackages: {}
 
 package:
   name: amphora-server

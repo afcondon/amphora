@@ -682,11 +682,7 @@
         "zipperarray": "2.0.0"
       }
     },
-    "extra_packages": {
-      "httpurple": {
-        "path": "../../../purescript-httpurple-ws"
-      }
-    }
+    "extra_packages": {}
   },
   "packages": {
     "aff": {
@@ -1026,11 +1022,11 @@
       ]
     },
     "httpurple": {
-      "type": "local",
-      "path": "../../../purescript-httpurple-ws",
+      "type": "registry",
+      "version": "4.0.0",
+      "integrity": "sha256-N5ItjWiQFit0Cj3Ia1jvEDjwC6fIBcgvOmcoCyrMl/Q=",
       "dependencies": [
         "aff",
-        "arraybuffer-types",
         "arrays",
         "bifunctors",
         "console",
@@ -1039,7 +1035,6 @@
         "either",
         "exceptions",
         "foldable-traversable",
-        "foreign",
         "foreign-object",
         "js-uri",
         "justifill",
