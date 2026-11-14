@@ -1,0 +1,994 @@
+{
+  "amphora-api-vectors": 1,
+  "declaration": "conformance/AMPHORA-API.md",
+  "generatedBy": "Test.Generate in amphora/api; do not edit by hand, run `make vectors`",
+  "operations": [
+    {
+      "name": "health",
+      "method": "GET",
+      "template": "/health"
+    },
+    {
+      "name": "putContent",
+      "method": "POST",
+      "template": "/content"
+    },
+    {
+      "name": "listContent",
+      "method": "GET",
+      "template": "/content"
+    },
+    {
+      "name": "getContent",
+      "method": "GET",
+      "template": "/content/{hash}"
+    },
+    {
+      "name": "addLabel",
+      "method": "POST",
+      "template": "/labels"
+    },
+    {
+      "name": "listLabels",
+      "method": "GET",
+      "template": "/labels"
+    },
+    {
+      "name": "addMorphism",
+      "method": "POST",
+      "template": "/morphisms"
+    },
+    {
+      "name": "listMorphisms",
+      "method": "GET",
+      "template": "/morphisms"
+    },
+    {
+      "name": "addFavorite",
+      "method": "POST",
+      "template": "/favorites"
+    },
+    {
+      "name": "listFavorites",
+      "method": "GET",
+      "template": "/favorites"
+    },
+    {
+      "name": "removeFavorite",
+      "method": "DELETE",
+      "template": "/favorites"
+    },
+    {
+      "name": "listRefs",
+      "method": "GET",
+      "template": "/refs"
+    },
+    {
+      "name": "getRef",
+      "method": "GET",
+      "template": "/refs/{name}"
+    },
+    {
+      "name": "moveRef",
+      "method": "POST",
+      "template": "/refs/{name}"
+    },
+    {
+      "name": "listMoves",
+      "method": "GET",
+      "template": "/moves"
+    }
+  ],
+  "scenario": [
+    {
+      "name": "health",
+      "why": "the store is up",
+      "operation": "health",
+      "method": "GET",
+      "path": [
+        "health"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/health",
+      "status": 200
+    },
+    {
+      "name": "put-alpha",
+      "why": "new content is saved under the hash of its payload",
+      "operation": "putContent",
+      "method": "POST",
+      "path": [
+        "content"
+      ],
+      "query": [],
+      "body": {
+        "kind": "conformance-kind",
+        "payload": "alpha"
+      },
+      "bodyText": "{\"kind\":\"conformance-kind\",\"payload\":\"alpha\"}",
+      "target": "/content",
+      "status": 200,
+      "contains": {
+        "hash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "deduped": false
+      }
+    },
+    {
+      "name": "put-alpha-again",
+      "why": "the same payload is not saved twice",
+      "operation": "putContent",
+      "method": "POST",
+      "path": [
+        "content"
+      ],
+      "query": [],
+      "body": {
+        "kind": "conformance-kind",
+        "payload": "alpha"
+      },
+      "bodyText": "{\"kind\":\"conformance-kind\",\"payload\":\"alpha\"}",
+      "target": "/content",
+      "status": 200,
+      "contains": {
+        "hash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "deduped": true
+      }
+    },
+    {
+      "name": "put-beta",
+      "why": "other content",
+      "operation": "putContent",
+      "method": "POST",
+      "path": [
+        "content"
+      ],
+      "query": [],
+      "body": {
+        "kind": "conformance-kind",
+        "payload": "beta"
+      },
+      "bodyText": "{\"kind\":\"conformance-kind\",\"payload\":\"beta\"}",
+      "target": "/content",
+      "status": 200,
+      "contains": {
+        "hash": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+      }
+    },
+    {
+      "name": "put-without-payload",
+      "why": "a payload is required",
+      "operation": "putContent",
+      "method": "POST",
+      "path": [
+        "content"
+      ],
+      "query": [],
+      "body": {
+        "kind": "x"
+      },
+      "bodyText": "{\"kind\":\"x\"}",
+      "target": "/content",
+      "status": 400
+    },
+    {
+      "name": "put-not-json",
+      "why": "the body is JSON",
+      "operation": "putContent",
+      "method": "POST",
+      "path": [
+        "content"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "kind=x",
+      "target": "/content",
+      "status": 400
+    },
+    {
+      "name": "put-an-array",
+      "why": "the body is an object",
+      "operation": "putContent",
+      "method": "POST",
+      "path": [
+        "content"
+      ],
+      "query": [],
+      "body": [],
+      "bodyText": "[]",
+      "target": "/content",
+      "status": 400
+    },
+    {
+      "name": "get-alpha",
+      "why": "content comes back as saved",
+      "operation": "getContent",
+      "method": "GET",
+      "path": [
+        "content",
+        "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/content/8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+      "status": 200,
+      "contains": {
+        "hash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "kind": "conformance-kind",
+        "payload": "alpha"
+      }
+    },
+    {
+      "name": "get-unknown",
+      "why": "no content has that hash",
+      "operation": "getContent",
+      "method": "GET",
+      "path": [
+        "content",
+        "0000"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/content/0000",
+      "status": 404
+    },
+    {
+      "name": "list-of-kind",
+      "why": "both, without payloads",
+      "operation": "listContent",
+      "method": "GET",
+      "path": [
+        "content"
+      ],
+      "query": [
+        [
+          "kind",
+          "conformance-kind"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/content?kind=conformance-kind",
+      "status": 200,
+      "contains": [
+        {
+          "hash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+          "kind": "conformance-kind"
+        },
+        {
+          "hash": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+        }
+      ],
+      "count": 2
+    },
+    {
+      "name": "list-of-no-kind",
+      "why": "nothing of that kind",
+      "operation": "listContent",
+      "method": "GET",
+      "path": [
+        "content"
+      ],
+      "query": [
+        [
+          "kind",
+          "conformance-absent"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/content?kind=conformance-absent",
+      "status": 200,
+      "count": 0
+    },
+    {
+      "name": "list-all",
+      "why": "everything",
+      "operation": "listContent",
+      "method": "GET",
+      "path": [
+        "content"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/content",
+      "status": 200,
+      "count": 2
+    },
+    {
+      "name": "label-full",
+      "why": "a label with most of what a label may carry",
+      "operation": "addLabel",
+      "method": "POST",
+      "path": [
+        "labels"
+      ],
+      "query": [],
+      "body": {
+        "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "name": "first",
+        "source": "user",
+        "harmonicRoot": "D",
+        "harmonicScale": "dorian",
+        "tags": [
+          "a",
+          "b"
+        ]
+      },
+      "bodyText": "{\"contentHash\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"name\":\"first\",\"source\":\"user\",\"harmonicRoot\":\"D\",\"harmonicScale\":\"dorian\",\"tags\":[\"a\",\"b\"]}",
+      "target": "/labels",
+      "status": 200
+    },
+    {
+      "name": "label-bare",
+      "why": "a label with a name alone",
+      "operation": "addLabel",
+      "method": "POST",
+      "path": [
+        "labels"
+      ],
+      "query": [],
+      "body": {
+        "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "name": "plain"
+      },
+      "bodyText": "{\"contentHash\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"name\":\"plain\"}",
+      "target": "/labels",
+      "status": 200
+    },
+    {
+      "name": "label-without-name",
+      "why": "a name is required",
+      "operation": "addLabel",
+      "method": "POST",
+      "path": [
+        "labels"
+      ],
+      "query": [],
+      "body": {
+        "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+      },
+      "bodyText": "{\"contentHash\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\"}",
+      "target": "/labels",
+      "status": 400
+    },
+    {
+      "name": "labels-of-alpha",
+      "why": "both labels, with what was left out as null and no tags as none",
+      "operation": "listLabels",
+      "method": "GET",
+      "path": [
+        "labels"
+      ],
+      "query": [
+        [
+          "hash",
+          "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/labels?hash=8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+      "status": 200,
+      "contains": [
+        {
+          "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+          "name": "first",
+          "source": "user",
+          "harmonicRoot": "D",
+          "harmonicScale": "dorian",
+          "harmonicChord": null,
+          "tags": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "name": "plain",
+          "source": null,
+          "tags": []
+        }
+      ],
+      "count": 2
+    },
+    {
+      "name": "labels-of-beta",
+      "why": "beta has none",
+      "operation": "listLabels",
+      "method": "GET",
+      "path": [
+        "labels"
+      ],
+      "query": [
+        [
+          "hash",
+          "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/labels?hash=f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+      "status": 200,
+      "count": 0
+    },
+    {
+      "name": "favourite-alpha",
+      "why": "published",
+      "operation": "addFavorite",
+      "method": "POST",
+      "path": [
+        "favorites"
+      ],
+      "query": [],
+      "body": {
+        "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "collection": "conformance-collection"
+      },
+      "bodyText": "{\"contentHash\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"collection\":\"conformance-collection\"}",
+      "target": "/favorites",
+      "status": 200,
+      "contains": {
+        "ok": true
+      }
+    },
+    {
+      "name": "favourite-beta",
+      "why": "published",
+      "operation": "addFavorite",
+      "method": "POST",
+      "path": [
+        "favorites"
+      ],
+      "query": [],
+      "body": {
+        "contentHash": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+        "collection": "conformance-collection"
+      },
+      "bodyText": "{\"contentHash\":\"f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753\",\"collection\":\"conformance-collection\"}",
+      "target": "/favorites",
+      "status": 200
+    },
+    {
+      "name": "favourite-without-collection",
+      "why": "a collection is required",
+      "operation": "addFavorite",
+      "method": "POST",
+      "path": [
+        "favorites"
+      ],
+      "query": [],
+      "body": {
+        "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+      },
+      "bodyText": "{\"contentHash\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\"}",
+      "target": "/favorites",
+      "status": 400
+    },
+    {
+      "name": "favourites-both",
+      "why": "both",
+      "operation": "listFavorites",
+      "method": "GET",
+      "path": [
+        "favorites"
+      ],
+      "query": [
+        [
+          "collection",
+          "conformance-collection"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/favorites?collection=conformance-collection",
+      "status": 200,
+      "contains": [
+        {
+          "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+          "collection": "conformance-collection"
+        }
+      ],
+      "count": 2
+    },
+    {
+      "name": "unfavourite-beta",
+      "why": "taken out of the collection",
+      "operation": "removeFavorite",
+      "method": "DELETE",
+      "path": [
+        "favorites"
+      ],
+      "query": [
+        [
+          "hash",
+          "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+        ],
+        [
+          "collection",
+          "conformance-collection"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/favorites?hash=f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753&collection=conformance-collection",
+      "status": 200
+    },
+    {
+      "name": "favourites-one",
+      "why": "alpha alone",
+      "operation": "listFavorites",
+      "method": "GET",
+      "path": [
+        "favorites"
+      ],
+      "query": [
+        [
+          "collection",
+          "conformance-collection"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/favorites?collection=conformance-collection",
+      "status": 200,
+      "count": 1
+    },
+    {
+      "name": "beta-still-there",
+      "why": "taking it out of a collection does not delete it",
+      "operation": "getContent",
+      "method": "GET",
+      "path": [
+        "content",
+        "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/content/f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+      "status": 200
+    },
+    {
+      "name": "unfavourite-without-collection",
+      "why": "both are required",
+      "operation": "removeFavorite",
+      "method": "DELETE",
+      "path": [
+        "favorites"
+      ],
+      "query": [
+        [
+          "hash",
+          "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/favorites?hash=f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+      "status": 400
+    },
+    {
+      "name": "morphism-with-params",
+      "why": "a step with parameters",
+      "operation": "addMorphism",
+      "method": "POST",
+      "path": [
+        "morphisms"
+      ],
+      "query": [],
+      "body": {
+        "from": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "to": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+        "kind": "edit",
+        "params": {
+          "n": 1
+        }
+      },
+      "bodyText": "{\"from\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"to\":\"f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753\",\"kind\":\"edit\",\"params\":{\"n\":1}}",
+      "target": "/morphisms",
+      "status": 200
+    },
+    {
+      "name": "morphism-bare",
+      "why": "a step without",
+      "operation": "addMorphism",
+      "method": "POST",
+      "path": [
+        "morphisms"
+      ],
+      "query": [],
+      "body": {
+        "from": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+        "to": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "kind": "undo"
+      },
+      "bodyText": "{\"from\":\"f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753\",\"to\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"kind\":\"undo\"}",
+      "target": "/morphisms",
+      "status": 200
+    },
+    {
+      "name": "morphism-without-kind",
+      "why": "a kind is required",
+      "operation": "addMorphism",
+      "method": "POST",
+      "path": [
+        "morphisms"
+      ],
+      "query": [],
+      "body": {
+        "from": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "to": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+      },
+      "bodyText": "{\"from\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"to\":\"f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753\"}",
+      "target": "/morphisms",
+      "status": 400
+    },
+    {
+      "name": "morphisms-from-alpha",
+      "why": "the parameters come back as the text of the JSON given",
+      "operation": "listMorphisms",
+      "method": "GET",
+      "path": [
+        "morphisms"
+      ],
+      "query": [
+        [
+          "from",
+          "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/morphisms?from=8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+      "status": 200,
+      "contains": [
+        {
+          "from": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+          "to": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+          "kind": "edit",
+          "params": "{\"n\":1}"
+        }
+      ],
+      "count": 1
+    },
+    {
+      "name": "morphisms-to-alpha",
+      "why": "without parameters, null",
+      "operation": "listMorphisms",
+      "method": "GET",
+      "path": [
+        "morphisms"
+      ],
+      "query": [
+        [
+          "to",
+          "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/morphisms?to=8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+      "status": 200,
+      "contains": [
+        {
+          "kind": "undo",
+          "params": null
+        }
+      ],
+      "count": 1
+    },
+    {
+      "name": "ref-absent",
+      "why": "there is no such ref yet",
+      "operation": "getRef",
+      "method": "GET",
+      "path": [
+        "refs",
+        "conformance",
+        "library"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/refs/conformance/library",
+      "status": 404
+    },
+    {
+      "name": "ref-create",
+      "why": "expecting nothing creates it; its name has a `/` in it",
+      "operation": "moveRef",
+      "method": "POST",
+      "path": [
+        "refs",
+        "conformance",
+        "library"
+      ],
+      "query": [],
+      "body": {
+        "to": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+      },
+      "bodyText": "{\"to\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\"}",
+      "target": "/refs/conformance/library",
+      "status": 200,
+      "contains": {
+        "name": "conformance/library",
+        "hash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+      }
+    },
+    {
+      "name": "ref-create-again",
+      "why": "expecting nothing, when it exists, is stale",
+      "operation": "moveRef",
+      "method": "POST",
+      "path": [
+        "refs",
+        "conformance",
+        "library"
+      ],
+      "query": [],
+      "body": {
+        "to": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+      },
+      "bodyText": "{\"to\":\"f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753\"}",
+      "target": "/refs/conformance/library",
+      "status": 409,
+      "contains": {
+        "current": {
+          "name": "conformance/library",
+          "hash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+        }
+      }
+    },
+    {
+      "name": "ref-move",
+      "why": "it pointed where expected, so it moves",
+      "operation": "moveRef",
+      "method": "POST",
+      "path": [
+        "refs",
+        "conformance",
+        "library"
+      ],
+      "query": [],
+      "body": {
+        "to": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+        "expected": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+      },
+      "bodyText": "{\"to\":\"f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753\",\"expected\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\"}",
+      "target": "/refs/conformance/library",
+      "status": 200,
+      "contains": {
+        "hash": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+      }
+    },
+    {
+      "name": "ref-move-stale",
+      "why": "it no longer points there; the answer says where it does",
+      "operation": "moveRef",
+      "method": "POST",
+      "path": [
+        "refs",
+        "conformance",
+        "library"
+      ],
+      "query": [],
+      "body": {
+        "to": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "expected": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+      },
+      "bodyText": "{\"to\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"expected\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\"}",
+      "target": "/refs/conformance/library",
+      "status": 409,
+      "contains": {
+        "current": {
+          "hash": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+        }
+      }
+    },
+    {
+      "name": "ref-move-nowhere",
+      "why": "no content has the hash to move to",
+      "operation": "moveRef",
+      "method": "POST",
+      "path": [
+        "refs",
+        "conformance",
+        "library"
+      ],
+      "query": [],
+      "body": {
+        "to": "0000",
+        "expected": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+      },
+      "bodyText": "{\"to\":\"0000\",\"expected\":\"f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753\"}",
+      "target": "/refs/conformance/library",
+      "status": 404
+    },
+    {
+      "name": "ref-move-without-to",
+      "why": "where to is required",
+      "operation": "moveRef",
+      "method": "POST",
+      "path": [
+        "refs",
+        "conformance",
+        "library"
+      ],
+      "query": [],
+      "body": {},
+      "bodyText": "{}",
+      "target": "/refs/conformance/library",
+      "status": 400
+    },
+    {
+      "name": "ref-get",
+      "why": "where it points now",
+      "operation": "getRef",
+      "method": "GET",
+      "path": [
+        "refs",
+        "conformance",
+        "library"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/refs/conformance/library",
+      "status": 200,
+      "contains": {
+        "name": "conformance/library",
+        "hash": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+      }
+    },
+    {
+      "name": "refs-by-prefix",
+      "why": "the one ref under the prefix",
+      "operation": "listRefs",
+      "method": "GET",
+      "path": [
+        "refs"
+      ],
+      "query": [
+        [
+          "prefix",
+          "conformance/"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/refs?prefix=conformance%2F",
+      "status": 200,
+      "contains": [
+        {
+          "name": "conformance/library"
+        }
+      ],
+      "count": 1
+    },
+    {
+      "name": "refs-by-other-prefix",
+      "why": "none",
+      "operation": "listRefs",
+      "method": "GET",
+      "path": [
+        "refs"
+      ],
+      "query": [
+        [
+          "prefix",
+          "conformance-absent/"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/refs?prefix=conformance-absent%2F",
+      "status": 200,
+      "count": 0
+    },
+    {
+      "name": "moves",
+      "why": "both moves, oldest first; the first came from nowhere",
+      "operation": "listMoves",
+      "method": "GET",
+      "path": [
+        "moves"
+      ],
+      "query": [
+        [
+          "ref",
+          "conformance/library"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/moves?ref=conformance%2Flibrary",
+      "status": 200,
+      "contains": [
+        {
+          "from": null,
+          "to": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+        },
+        {
+          "from": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+          "to": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+        }
+      ],
+      "count": 2
+    },
+    {
+      "name": "moves-without-ref",
+      "why": "which ref is required",
+      "operation": "listMoves",
+      "method": "GET",
+      "path": [
+        "moves"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/moves",
+      "status": 400
+    },
+    {
+      "name": "ref-move-is-a-morphism",
+      "why": "a ref moving from one content to another is recorded as a morphism",
+      "operation": "listMorphisms",
+      "method": "GET",
+      "path": [
+        "morphisms"
+      ],
+      "query": [
+        [
+          "from",
+          "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8"
+        ],
+        [
+          "to",
+          "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753"
+        ]
+      ],
+      "body": null,
+      "bodyText": "",
+      "target": "/morphisms?from=8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8&to=f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+      "status": 200,
+      "contains": [
+        {
+          "kind": "ref:conformance/library"
+        }
+      ],
+      "count": 2
+    },
+    {
+      "name": "wrong-method",
+      "why": "an operation's path under a method it does not have",
+      "operation": "",
+      "method": "DELETE",
+      "path": [
+        "content"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/content",
+      "status": 405
+    },
+    {
+      "name": "unknown-path",
+      "why": "a path that is no operation's",
+      "operation": "",
+      "method": "GET",
+      "path": [
+        "conformance-nowhere"
+      ],
+      "query": [],
+      "body": null,
+      "bodyText": "",
+      "target": "/conformance-nowhere",
+      "status": 404
+    }
+  ]
+}

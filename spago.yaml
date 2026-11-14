@@ -1,7 +1,10 @@
 workspace:
   packageSet:
     registry: 77.13.1
-  extraPackages: {}
+  extraPackages:
+    # Wire descriptions: the API in api/ is written with it.
+    hawser:
+      path: ../../../purescript-hylograph-libs/purescript-hawser
 
 package:
   name: amphora-server

@@ -1,0 +1,23 @@
+# Amphora's HTTP API, described once with Hawser (Amphora.Api). Its own
+# package so that the server and every PureScript client take the same
+# values, and so that it builds in a browser: it depends on nothing but
+# Hawser. Declaration: ../conformance/AMPHORA-API.md.
+package:
+  name: amphora-api
+  dependencies:
+    - argonaut-core
+    - hawser
+    - maybe
+    - prelude
+  test:
+    main: Test.Main
+    dependencies:
+      - arrays
+      - console
+      - effect
+      - either
+      - exceptions
+      - foldable-traversable
+      - foreign-object
+      - integers
+      - tuples

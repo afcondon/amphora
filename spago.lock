@@ -1,6 +1,30 @@
 {
   "workspace": {
     "packages": {
+      "amphora-api": {
+        "path": "api",
+        "core": {
+          "dependencies": [
+            "argonaut-core",
+            "hawser",
+            "maybe",
+            "prelude"
+          ]
+        },
+        "test": {
+          "dependencies": [
+            "arrays",
+            "console",
+            "effect",
+            "either",
+            "exceptions",
+            "foldable-traversable",
+            "foreign-object",
+            "integers",
+            "tuples"
+          ]
+        }
+      },
       "amphora-server": {
         "path": "./",
         "core": {
@@ -682,7 +706,11 @@
         "zipperarray": "2.0.0"
       }
     },
-    "extra_packages": {}
+    "extra_packages": {
+      "hawser": {
+        "path": "../../../purescript-hylograph-libs/purescript-hawser"
+      }
+    }
   },
   "packages": {
     "aff": {
@@ -1005,6 +1033,23 @@
         "tailrec",
         "tuples",
         "unfoldable"
+      ]
+    },
+    "hawser": {
+      "type": "local",
+      "path": "../../../purescript-hylograph-libs/purescript-hawser",
+      "dependencies": [
+        "argonaut-core",
+        "arrays",
+        "either",
+        "foldable-traversable",
+        "foreign-object",
+        "integers",
+        "maybe",
+        "numbers",
+        "prelude",
+        "strings",
+        "tuples"
       ]
     },
     "heterogeneous": {
