@@ -5,7 +5,8 @@
 #   make vectors         write the vector file, the OpenAPI file and the table
 #   make check-vectors   fail if any of those is out of date
 #   make conformance     replay the scenario against the real server, on a
-#                        database of its own
+#                        database of its own; then the PureScript client
+#                        against it
 #   make check           all of the above but `vectors`
 
 GENERATE = node -e "import('./output/Test.Generate/index.js').then(m => m.$(1)())"
@@ -32,5 +33,6 @@ check-vectors: test
 
 conformance: build
 	node conformance/replay.mjs
+	node conformance/client.mjs
 
 check: check-vectors conformance

@@ -12,6 +12,8 @@ package:
   test:
     main: Test.Main
     dependencies:
+      - aff
+      - aff-promise
       - arrays
       - console
       - effect
@@ -19,5 +21,6 @@ package:
       - exceptions
       - foldable-traversable
       - foreign-object
+      - hawser-fetch
       - integers
       - tuples

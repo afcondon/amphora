@@ -5,6 +5,9 @@ workspace:
     # Wire descriptions: the API in api/ is written with it.
     hawser:
       path: ../../../purescript-hylograph-libs/purescript-hawser
+    # Asking a described operation with fetch; for the client's own test.
+    hawser-fetch:
+      path: ../../../purescript-hylograph-libs/purescript-hawser/fetch
 
 package:
   name: amphora-server
