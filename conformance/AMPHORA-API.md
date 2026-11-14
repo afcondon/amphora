@@ -79,20 +79,43 @@ An identifier or a time that the store makes up is never asserted.
 
 ## Who is held, and by what
 
-| Program | Held by |
-|---|---|
-| The server (`src/Amphora/Main.purs`) | `make conformance`: `replay.mjs` starts the real server on a database of its own, sends every step, and checks each answer's status, that the operation declares it, and what it contains |
-| The description itself | `make test`: every operation succeeds in some step, every declared failure is met in some step, and each step's request is one the description accepts or refuses as the step expects |
+| Program | Language | Held by |
+|---|---|---|
+| The server (`src/Amphora/Main.purs`) | PureScript | `make conformance`: `replay.mjs` starts the real server on a database of its own, sends every step, and checks each answer's status, that the operation declares it, and what it contains |
+| The description itself | PureScript | `make test`: every operation succeeds in some step, every declared failure is met in some step, and each step's request is one the description accepts or refuses as the step expects |
+| The PureScript client (`Hawser.Fetch.ask` over `Amphora.Api`) | PureScript | `make conformance`: `client.mjs` runs `Test.Client`, typed requests and typed answers against the real server |
+| Triggerfish: the shared library module, the ref-based libraries, Balistes, Conspicillum's shelf and library | PureScript | The compiler. Each request is an operation of `Amphora.Api`; none writes a path or a body |
+| Quadrat (`Quadrat.Declared`) | PureScript | The compiler, as above |
+| DeepStar (`internal/rig/amphora.go`) | Go | `make wire` there: its real client behind the witness |
+| Itajara's `publish-take.mjs` | JavaScript | Not held. It sends `putContent` and `addLabel` with declared fields, by reading |
+| `scripts/seed-balistes.mjs` here | JavaScript | Not held, and broken: it imports a Triggerfish module that has since moved to Reef |
 
-Clients are not yet held. See `docs/kb/plans/wire-declarations.md`, step 4.
+Architeuthis has an Amphora reader in Erlang (`es9_cv:fetch_tables`), and
+nothing calls it.
+
+### The witness
+
+`witness.mjs` holds a client in any language. It stands between the client
+and a real store and judges every request and every answer by the
+description: the request must be one some operation accepts, read strictly
+(no undeclared field), and the answer must be one that operation declares.
+
+```sh
+# in a client's tests: a store on a database of its own, and a verdict
+node conformance/witness.mjs --scratch --expect putContent,getContent -- <the client's test command>
+
+# in front of the running store, to see what the rig really sends
+node conformance/witness.mjs --upstream http://localhost:3024 --port 3924
+```
+
+The command is run with `AMPHORA_URL` and `AMPHORA_BASE` naming the
+witness. The run fails if the command fails, if anything was judged wrong,
+or if an operation named in `--expect` was never asked.
 
 ## Conforming
 
-A **client** in another language replays the steps that name the operations
-it uses: given the values evident in a step, what it sends must have that
-`method`, those `path` segments once decoded, those `query` pairs and that
-`body` as JSON; and it must read an answer of the shape `openapi.json`
-gives for that operation.
+A **client** in another language runs its own code behind the witness.
+The scenario's steps and `openapi.json` say what it should send and expect.
 
 The file carries `"amphora-api-vectors": 1`. A replayer asserts the number
 it understands. Not finding the file is a failure, not a skip.
