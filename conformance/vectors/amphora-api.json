@@ -357,6 +357,42 @@
       "status": 400
     },
     {
+      "name": "label-undeclared-field",
+      "why": "a field the description does not declare is refused, not ignored",
+      "operation": "addLabel",
+      "method": "POST",
+      "path": [
+        "labels"
+      ],
+      "query": [],
+      "body": {
+        "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "name": "x",
+        "colour": "red"
+      },
+      "bodyText": "{\"contentHash\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"name\":\"x\",\"colour\":\"red\"}",
+      "target": "/labels",
+      "status": 400
+    },
+    {
+      "name": "label-tags-not-an-array",
+      "why": "tags are an array of strings",
+      "operation": "addLabel",
+      "method": "POST",
+      "path": [
+        "labels"
+      ],
+      "query": [],
+      "body": {
+        "contentHash": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+        "name": "x",
+        "tags": "a"
+      },
+      "bodyText": "{\"contentHash\":\"8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8\",\"name\":\"x\",\"tags\":\"a\"}",
+      "target": "/labels",
+      "status": 400
+    },
+    {
       "name": "labels-of-alpha",
       "why": "both labels, with what was left out as null and no tags as none",
       "operation": "listLabels",

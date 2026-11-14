@@ -120,6 +120,8 @@ steps =
       200
       "a label with a name alone"
   , raw "label-without-name" "addLabel" "POST" [ "labels" ] [] ("{\"contentHash\":\"" <> alpha <> "\"}") 400 "a name is required"
+  , raw "label-undeclared-field" "addLabel" "POST" [ "labels" ] [] ("{\"contentHash\":\"" <> alpha <> "\",\"name\":\"x\",\"colour\":\"red\"}") 400 "a field the description does not declare is refused, not ignored"
+  , raw "label-tags-not-an-array" "addLabel" "POST" [ "labels" ] [] ("{\"contentHash\":\"" <> alpha <> "\",\"name\":\"x\",\"tags\":\"a\"}") 400 "tags are an array of strings"
   , sent "labels-of-alpha" Api.listLabels { hash: Just alpha } 200 "both labels, with what was left out as null and no tags as none"
       # containing
           ( list

@@ -15,6 +15,7 @@ package:
   dependencies:
     - aff
     - aff-promise
+    - amphora-api
     - argonaut-core
     - arrays
     - console
@@ -23,6 +24,7 @@ package:
     - foldable-traversable
     - foreign
     - foreign-object
+    - hawser
     - httpurple
     - integers
     - maybe
@@ -31,6 +33,7 @@ package:
     - node-process
     - nullable
     - prelude
+    - routing-duplex
     - strings
     - transformers
     - tuples

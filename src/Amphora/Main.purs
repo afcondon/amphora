@@ -1,381 +1,158 @@
--- | Amphora HTTP API — the content-addressed artefact store on :3024.
+-- | Amphora's HTTP server — the content-addressed artefact store on :3024.
 -- |
--- | Endpoints (all JSON, permissive CORS):
--- |   GET  /health                         → "ok"
--- |   POST /content   {kind, payload}       → {hash, deduped}   (save→hash→dedup)
--- |   GET  /content?kind=…                  → [{hash, kind, createdAt}]
--- |   GET  /content/:hash                   → {hash, kind, payload, createdAt}
--- |   POST /labels    {contentHash, name, …} → {id}
--- |   GET  /labels?hash=…                   → [label]
--- |   POST /morphisms {from, to, kind, …}   → {ok}
--- |   GET  /morphisms?from=…&to=…           → [morphism]
--- |   POST /favorites {contentHash, collection} → {ok}
--- |   GET  /favorites?collection=…          → [favorite]
--- |   DELETE /favorites?hash=…&collection=… → {ok}   (unpublish; content stays)
--- |   GET  /refs?prefix=…                   → [{name, hash, movedAt}]
--- |   GET  /refs/:name…                     → {name, hash, movedAt}   (404 if none)
--- |   POST /refs/:name… {to, expected}      → {name, hash, movedAt}
--- |                                            409 {error, current}  if it had moved
--- |   GET  /moves?ref=…                     → [{name, from, to, movedAt}]  oldest first
+-- | What it answers is declared once, in `Amphora.Api` (api/), and said for
+-- | people in `conformance/AMPHORA-API.md`. This module has no paths, no
+-- | field names and no JSON of its own: each operation of the description is
+-- | paired here with the work in `Amphora.Store` that carries it out, and
+-- | `Hawser.Http` does the reading of the request and the writing of the
+-- | answer. A request the description does not accept is refused (400) and
+-- | never reaches the store.
 -- |
--- | A ref name may contain `/` (`conspicillum/library`).
+-- | `make conformance` holds this to the description, against a database of
+-- | its own.
 -- |
 -- | The BEAM rig never touches this — it's an editor-side store.
 module Amphora.Main where
 
 import Prelude
 
+import Amphora.Api as Api
 import Amphora.DuckDB as DB
 import Amphora.Store as Store
 import Data.Argonaut.Core as AJ
-import Data.Argonaut.Parser (jsonParser)
-import Data.Either (Either(..), note)
+import Data.Either (Either(..))
 import Data.Int as Int
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.String (joinWith)
-import Data.Traversable (traverse)
-import Data.Tuple (Tuple(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Effect (Effect)
-import Effect.Aff (launchAff_)
+import Effect.Aff (Aff, launchAff_)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
-import Foreign.Object (Object)
 import Foreign.Object as Object
-import HTTPurple
-  ( Method(..)
-  , Request
-  , ResponseM
-  , badRequest'
-  , ok'
-  , response'
-  , serve
-  , toString
-  )
+import HTTPurple (Method(..), Request, ResponseM, ok', response', serve, toString)
 import HTTPurple.Headers (ResponseHeaders, headers)
-import HTTPurple.Lookup ((!!))
-import HTTPurple.Status as Status
+import Hawser.Http (Answer, Endpoint, Handler, Routed(..), dispatch, handle)
+import Hawser.Value (toText)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync (readTextFile)
 import Node.Process as Process
-import Routing.Duplex (RouteDuplex', rest, root, segment)
-import Routing.Duplex.Generic (noArgs, sum)
-import Routing.Duplex.Generic.Syntax ((/))
-import Data.Generic.Rep (class Generic)
+import Routing.Duplex (RouteDuplex', rest, root)
 
 -- ============================================================
--- Routes — plain path segments; filters ride the query string
+-- The operations, each with its work
 -- ============================================================
 
-data Route
-  = Health
-  | ContentColl
-  | ContentOne String
-  | LabelsRoute
-  | MorphismsRoute
-  | FavoritesRoute
-  | RefsColl
-  | RefOne (Array String)
-  | MovesRoute
+-- | An answer that is not success: a status the operation declares, and a
+-- | sentence for a person.
+problem :: Int -> String -> Answer
+problem status sentence = { status, contentType: "application/json", body: toText Api.problem { error: sentence } }
 
-derive instance Generic Route _
+-- | Work that cannot fail.
+always :: forall request reply. Endpoint request reply -> (request -> Aff reply) -> Handler Aff
+always described work = handle described (map Right <<< work)
 
-route :: RouteDuplex' Route
-route = root $ sum
-  { "Health": "health" / noArgs
-  , "ContentColl": "content" / noArgs
-  , "ContentOne": "content" / segment
-  , "LabelsRoute": "labels" / noArgs
-  , "MorphismsRoute": "morphisms" / noArgs
-  , "FavoritesRoute": "favorites" / noArgs
-  , "RefsColl": "refs" / noArgs
-  , "RefOne": "refs" / rest
-  , "MovesRoute": "moves" / noArgs
-  }
+done :: Aff Unit -> Aff Api.Done
+done work = work $> { ok: true }
 
--- ============================================================
--- JSON building
--- ============================================================
+operations :: DB.Database -> Array (Handler Aff)
+operations db =
+  [ always Api.health \_ -> pure unit
 
-jStr :: String -> AJ.Json
-jStr = AJ.fromString
+  , always Api.putContent (Store.putContent db)
+  , always Api.listContent \{ kind } -> Store.listContent db kind
+  , handle Api.getContent \{ hash } -> Store.getContent db hash <#> case _ of
+      Just content -> Right content
+      Nothing -> Left (problem 404 "no such content")
 
-jMaybe :: Maybe String -> AJ.Json
-jMaybe = maybe AJ.jsonNull AJ.fromString
+  , handle Api.addLabel \label ->
+      Store.addLabel db
+        { contentHash: label.contentHash
+        , name: label.name
+        , source: label.source
+        , harmonicRoot: label.harmonicRoot
+        , harmonicScale: label.harmonicScale
+        , harmonicChord: label.harmonicChord
+        , tags: fromMaybe [] label.tags
+        } <#> case _ of
+        Just id -> Right { id }
+        Nothing -> Left (problem 500 "label insert failed")
+  , always Api.listLabels \{ hash } -> Store.listLabels db hash
 
-obj :: Array (Tuple String AJ.Json) -> AJ.Json
-obj = AJ.fromObject <<< Object.fromFoldable
-
-encPut :: Store.PutResult -> AJ.Json
-encPut r = obj [ Tuple "hash" (jStr r.hash), Tuple "deduped" (AJ.fromBoolean r.deduped) ]
-
-encMeta :: Store.ContentMeta -> AJ.Json
-encMeta m = obj
-  [ Tuple "hash" (jStr m.hash)
-  , Tuple "kind" (jStr m.kind)
-  , Tuple "createdAt" (jMaybe m.createdAt)
-  ]
-
-encContent :: Store.Content -> AJ.Json
-encContent c = obj
-  [ Tuple "hash" (jStr c.hash)
-  , Tuple "kind" (jStr c.kind)
-  , Tuple "payload" (jStr c.payload)
-  , Tuple "createdAt" (jMaybe c.createdAt)
-  ]
-
-encLabel :: Store.Label -> AJ.Json
-encLabel l = obj
-  [ Tuple "id" (jStr l.id)
-  , Tuple "contentHash" (jStr l.contentHash)
-  , Tuple "name" (jStr l.name)
-  , Tuple "source" (jMaybe l.source)
-  , Tuple "harmonicRoot" (jMaybe l.harmonicRoot)
-  , Tuple "harmonicScale" (jMaybe l.harmonicScale)
-  , Tuple "harmonicChord" (jMaybe l.harmonicChord)
-  , Tuple "tags" (AJ.fromArray (map jStr l.tags))
-  , Tuple "createdAt" (jMaybe l.createdAt)
-  ]
-
-encMorphism :: Store.Morphism -> AJ.Json
-encMorphism m = obj
-  [ Tuple "from" (jStr m.fromHash)
-  , Tuple "to" (jStr m.toHash)
-  , Tuple "kind" (jStr m.kind)
-  , Tuple "params" (jMaybe m.params)
-  ]
-
-encFavorite :: Store.Favorite -> AJ.Json
-encFavorite f = obj
-  [ Tuple "contentHash" (jStr f.contentHash)
-  , Tuple "collection" (jStr f.collection)
-  ]
-
-encRef :: Store.Ref -> AJ.Json
-encRef r = obj
-  [ Tuple "name" (jStr r.name)
-  , Tuple "hash" (jStr r.hash)
-  , Tuple "movedAt" (jMaybe r.movedAt)
-  ]
-
-encRefMove :: Store.RefMove -> AJ.Json
-encRefMove m = obj
-  [ Tuple "name" (jStr m.name)
-  , Tuple "from" (jMaybe m.from)
-  , Tuple "to" (jStr m.to)
-  , Tuple "movedAt" (jMaybe m.movedAt)
-  ]
-
-errJson :: String -> String
-errJson msg = AJ.stringify (obj [ Tuple "error" (jStr msg) ])
-
-okJson :: String
-okJson = AJ.stringify (obj [ Tuple "ok" (AJ.fromBoolean true) ])
-
--- ============================================================
--- Body parsing
--- ============================================================
-
-asObject :: String -> Either String (Object AJ.Json)
-asObject raw = case jsonParser raw of
-  Left e -> Left ("bad JSON: " <> e)
-  Right j -> note "expected a JSON object" (AJ.toObject j)
-
-getStr :: String -> Object AJ.Json -> Maybe String
-getStr key o = Object.lookup key o >>= AJ.toString
-
-getStrArray :: String -> Object AJ.Json -> Array String
-getStrArray key o =
-  fromMaybe [] (Object.lookup key o >>= AJ.toArray >>= traverse AJ.toString)
-
-parseContent :: String -> Either String { kind :: String, payload :: String }
-parseContent raw = do
-  o <- asObject raw
-  kind <- note "missing field: kind" (getStr "kind" o)
-  payload <- note "missing field: payload" (getStr "payload" o)
-  pure { kind, payload }
-
-parseLabel :: String -> Either String Store.LabelInput
-parseLabel raw = do
-  o <- asObject raw
-  contentHash <- note "missing field: contentHash" (getStr "contentHash" o)
-  name <- note "missing field: name" (getStr "name" o)
-  pure
-    { contentHash
-    , name
-    , source: getStr "source" o
-    , harmonicRoot: getStr "harmonicRoot" o
-    , harmonicScale: getStr "harmonicScale" o
-    , harmonicChord: getStr "harmonicChord" o
-    , tags: getStrArray "tags" o
-    }
-
-parseMorphism :: String -> Either String Store.MorphismInput
-parseMorphism raw = do
-  o <- asObject raw
-  fromHash <- note "missing field: from" (getStr "from" o)
-  toHash <- note "missing field: to" (getStr "to" o)
-  kind <- note "missing field: kind" (getStr "kind" o)
   -- params: any JSON value, stored as its canonical string form.
-  pure { fromHash, toHash, kind, params: AJ.stringify <$> Object.lookup "params" o }
+  , always Api.addMorphism \{ from, to, kind, params } ->
+      done (Store.addMorphism db { fromHash: from, toHash: to, kind, params: AJ.stringify <$> params })
+  , always Api.listMorphisms \{ from, to } ->
+      Store.listMorphisms db from to <#> map \found -> { from: found.fromHash, to: found.toHash, kind: found.kind, params: found.params }
 
-parseFavorite :: String -> Either String Store.Favorite
-parseFavorite raw = do
-  o <- asObject raw
-  contentHash <- note "missing field: contentHash" (getStr "contentHash" o)
-  collection <- note "missing field: collection" (getStr "collection" o)
-  pure { contentHash, collection }
+  , always Api.addFavorite (done <<< Store.addFavorite db)
+  , always Api.listFavorites \{ collection } -> Store.listFavorites db collection
+  -- unpublish: the content and its labels stay addressable.
+  , always Api.removeFavorite \{ hash, collection } -> done (Store.removeFavorite db { contentHash: hash, collection })
 
--- | `{to, expected}`; an absent or null `expected` means "create it".
-parseMove :: String -> Either String { to :: String, expected :: Maybe String }
-parseMove raw = do
-  o <- asObject raw
-  to <- note "missing field: to" (getStr "to" o)
-  pure { to, expected: getStr "expected" o }
+  , always Api.listRefs \{ prefix } -> Store.listRefs db (fromMaybe "" prefix)
+  , handle Api.getRef \{ name } -> Store.getRef db name <#> case _ of
+      Just ref -> Right ref
+      Nothing -> Left (problem 404 "no such ref")
+  , handle Api.moveRef \move -> Store.moveRef db move <#> case _ of
+      Store.Moved ref -> Right ref
+      Store.NoSuchContent -> Left (problem 404 "no such content")
+      Store.Stale current -> Left
+        { status: 409
+        , contentType: "application/json"
+        , body: toText Api.stale { error: "the ref has moved", current }
+        }
+  , always Api.listMoves \{ ref } -> Store.listRefMoves db ref
+  ]
 
 -- ============================================================
--- CORS
+-- The server
 -- ============================================================
 
-corsHeaders :: ResponseHeaders
-corsHeaders = headers
-  { "Access-Control-Allow-Origin": "*"
-  , "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS"
-  , "Access-Control-Allow-Headers": "Content-Type"
-  }
-
-jsonCors :: ResponseHeaders
-jsonCors = headers
-  { "Content-Type": "application/json"
+-- | Open to any page: the editors are served from other ports.
+cors :: String -> ResponseHeaders
+cors contentType = headers
+  { "Content-Type": contentType
   , "Access-Control-Allow-Origin": "*"
   , "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS"
   , "Access-Control-Allow-Headers": "Content-Type"
   }
 
--- | Query param, treating an absent value and an empty value alike.
-qparam :: Object String -> String -> Maybe String
-qparam q key = case q !! key of
-  Just s | s /= "" -> Just s
-  _ -> Nothing
+-- | Every path, as its segments: which operation a request is for is the
+-- | description's business, not the router's.
+route :: RouteDuplex' (Array String)
+route = root rest
 
--- ============================================================
--- Router
--- ============================================================
+methodName :: Method -> String
+methodName = case _ of
+  Get -> "GET"
+  Post -> "POST"
+  Put -> "PUT"
+  Delete -> "DELETE"
+  Head -> "HEAD"
+  Connect -> "CONNECT"
+  Options -> "OPTIONS"
+  Trace -> "TRACE"
+  Patch -> "PATCH"
 
-mkRouter :: DB.Database -> Request Route -> ResponseM
-mkRouter db { route: r, method, body, query } = case method of
-  Options -> ok' corsHeaders ""
-  _ -> case r of
-    Health -> ok' corsHeaders "ok"
-
-    ContentColl -> case method of
-      Post -> do
-        raw <- toString body
-        case parseContent raw of
-          Left e -> badRequest' jsonCors (errJson e)
-          Right c -> do
-            res <- Store.putContent db c
-            sendJson (encPut res)
-      Get -> do
-        metas <- Store.listContent db (qparam query "kind")
-        sendJson (AJ.fromArray (map encMeta metas))
-      _ -> notAllowed
-
-    ContentOne hash -> case method of
-      Get -> do
-        mc <- Store.getContent db hash
-        case mc of
-          Nothing -> response' Status.notFound jsonCors (errJson "no such content")
-          Just c -> sendJson (encContent c)
-      _ -> notAllowed
-
-    LabelsRoute -> case method of
-      Get -> do
-        ls <- Store.listLabels db (qparam query "hash")
-        sendJson (AJ.fromArray (map encLabel ls))
-      Post -> do
-        raw <- toString body
-        case parseLabel raw of
-          Left e -> badRequest' jsonCors (errJson e)
-          Right inp -> do
-            mId <- Store.addLabel db inp
-            case mId of
-              Just idS -> sendJson (obj [ Tuple "id" (jStr idS) ])
-              Nothing -> response' Status.internalServerError jsonCors (errJson "label insert failed")
-      _ -> notAllowed
-
-    MorphismsRoute -> case method of
-      Get -> do
-        ms <- Store.listMorphisms db (qparam query "from") (qparam query "to")
-        sendJson (AJ.fromArray (map encMorphism ms))
-      Post -> do
-        raw <- toString body
-        case parseMorphism raw of
-          Left e -> badRequest' jsonCors (errJson e)
-          Right m -> do
-            Store.addMorphism db m
-            ok' jsonCors okJson
-      _ -> notAllowed
-
-    FavoritesRoute -> case method of
-      Get -> do
-        fs <- Store.listFavorites db (qparam query "collection")
-        sendJson (AJ.fromArray (map encFavorite fs))
-      Post -> do
-        raw <- toString body
-        case parseFavorite raw of
-          Left e -> badRequest' jsonCors (errJson e)
-          Right f -> do
-            Store.addFavorite db f
-            ok' jsonCors okJson
-      -- unpublish: DELETE /favorites?hash=<h>&collection=<c> removes the content
-      -- from that collection (content + labels stay addressable).
-      Delete -> case qparam query "hash", qparam query "collection" of
-        Just h, Just c -> do
-          Store.removeFavorite db { contentHash: h, collection: c }
-          ok' jsonCors okJson
-        _, _ -> badRequest' jsonCors (errJson "DELETE /favorites needs ?hash= and ?collection=")
-      _ -> notAllowed
-
-    RefsColl -> case method of
-      Get -> do
-        refs <- Store.listRefs db (fromMaybe "" (qparam query "prefix"))
-        sendJson (AJ.fromArray (map encRef refs))
-      _ -> notAllowed
-
-    RefOne [] -> badRequest' jsonCors (errJson "a ref needs a name: /refs/<name>")
-    RefOne segments -> do
-      let name = joinWith "/" segments
-      case method of
-        Get -> do
-          found <- Store.getRef db name
-          case found of
-            Nothing -> response' Status.notFound jsonCors (errJson "no such ref")
-            Just ref -> sendJson (encRef ref)
-        Post -> do
-          raw <- toString body
-          case parseMove raw of
-            Left e -> badRequest' jsonCors (errJson e)
-            Right { to, expected } -> do
-              moved <- Store.moveRef db { name, to, expected }
-              case moved of
-                Store.Moved ref -> sendJson (encRef ref)
-                Store.NoSuchContent -> response' Status.notFound jsonCors (errJson "no such content")
-                Store.Stale current -> response' Status.conflict jsonCors $ AJ.stringify $ obj
-                  [ Tuple "error" (jStr "the ref has moved")
-                  , Tuple "current" (maybe AJ.jsonNull encRef current)
-                  ]
-        _ -> notAllowed
-
-    MovesRoute -> case method of
-      Get -> case qparam query "ref" of
-        Nothing -> badRequest' jsonCors (errJson "GET /moves needs ?ref=")
-        Just name -> do
-          moves <- Store.listRefMoves db name
-          sendJson (AJ.fromArray (map encRefMove moves))
-      _ -> notAllowed
+mkRouter :: DB.Database -> Request (Array String) -> ResponseM
+mkRouter db = \{ method, path, query, body } -> case method of
+  Options -> ok' (cors "text/plain") ""
+  _ -> do
+    raw <- toString body
+    let
+      wire =
+        { method: methodName method
+        , path
+        , query: Object.toUnfoldable query
+        , body: raw
+        }
+    case dispatch handlers wire of
+      Run work -> work >>= send
+      Unusable400 sentence -> send (problem 400 sentence)
+      NoSuchMethod -> send (problem 405 "method not allowed")
+      Nowhere -> send (problem 404 "no such path")
   where
-  sendJson j = ok' jsonCors (AJ.stringify j)
-  notAllowed = response' Status.methodNotAllowed jsonCors (errJson "method not allowed")
+  handlers = operations db
+  send answer = response' answer.status (cors answer.contentType) answer.body
 
 -- ============================================================
 -- Boot

@@ -48,16 +48,15 @@ for clients in other languages and for the standard tools.
   as 64 hex digits. Saving the same payload twice saves it once.
 - **CORS is open,** and `OPTIONS` on any path answers 200.
 
-## What the description says that the server does not yet enforce
+## The server reads strictly
 
-The server is older than the description and reads more loosely:
-
-- it ignores fields in a body that the description does not declare, where
-  the description refuses them;
-- it reads `tags` that is not an array of strings as no tags.
-
-The scenario sends nothing of that kind, so it holds against the server as
-it is. Moving the server onto the description closes the gap.
+Since 2026-11-14 the server is the description, carried out
+(`src/Amphora/Main.purs` pairs each operation with its work in the store,
+and has no paths or field names of its own). So it refuses, with 400, a
+request the description does not accept: a missing field, a field of
+another type, and a field the description does not declare. Before, an
+undeclared field was ignored and `tags` that was not an array was read as
+no tags.
 
 ## The vectors
 
@@ -81,7 +80,7 @@ An identifier or a time that the store makes up is never asserted.
 
 | Program | Language | Held by |
 |---|---|---|
-| The server (`src/Amphora/Main.purs`) | PureScript | `make conformance`: `replay.mjs` starts the real server on a database of its own, sends every step, and checks each answer's status, that the operation declares it, and what it contains |
+| The server (`src/Amphora/Main.purs`) | PureScript | It is built from the description; and `make conformance`: `replay.mjs` starts the real server on a database of its own, sends every step, and checks each answer's status, that the operation declares it, and what it contains |
 | The description itself | PureScript | `make test`: every operation succeeds in some step, every declared failure is met in some step, and each step's request is one the description accepts or refuses as the step expects |
 | The PureScript client (`Hawser.Fetch.ask` over `Amphora.Api`) | PureScript | `make conformance`: `client.mjs` runs `Test.Client`, typed requests and typed answers against the real server |
 | Triggerfish: the shared library module, the ref-based libraries, Balistes, Conspicillum's shelf and library | PureScript | The compiler. Each request is an operation of `Amphora.Api`; none writes a path or a body |

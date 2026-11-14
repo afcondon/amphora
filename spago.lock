@@ -34,6 +34,7 @@
           "dependencies": [
             "aff",
             "aff-promise",
+            "amphora-api",
             "argonaut-core",
             "arrays",
             "console",
@@ -42,6 +43,7 @@
             "foldable-traversable",
             "foreign",
             "foreign-object",
+            "hawser",
             "httpurple",
             "integers",
             "maybe",
@@ -50,6 +52,7 @@
             "node-process",
             "nullable",
             "prelude",
+            "routing-duplex",
             "strings",
             "transformers",
             "tuples"
