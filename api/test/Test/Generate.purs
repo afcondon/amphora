@@ -72,6 +72,7 @@ openapi = log $ Json.stringifyWithIndent 2 $ OpenApi.document
   , version: "1"
   , description: "The Atlantis artefact store: immutable content named by the hash of its payload, with labels, favourites, morphisms and refs. Generated from Amphora.Api; see conformance/AMPHORA-API.md."
   , server: "http://localhost:3024"
+  , license: "MIT"
   }
   Api.operations
 

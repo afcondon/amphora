@@ -28,7 +28,8 @@ operation described once, with Hawser.
 
 The table is generated from the description by `make vectors`. Do not edit
 it here. `openapi.json` beside this file is generated from the same values,
-for clients in other languages and for the standard tools.
+for clients in other languages and for the standard tools. `make lint-openapi`
+runs it through Redocly's linter, which finds it valid (2026-11-14).
 
 ## Rules that hold for every operation
 

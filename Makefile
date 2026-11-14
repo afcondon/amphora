@@ -11,7 +11,7 @@
 
 GENERATE = node -e "import('./output/Test.Generate/index.js').then(m => m.$(1)())"
 
-.PHONY: build test vectors check-vectors conformance check
+.PHONY: build test vectors check-vectors conformance check lint-openapi
 
 build:
 	spago build
@@ -36,3 +36,11 @@ conformance: build
 	node conformance/client.mjs
 
 check: check-vectors conformance
+
+# The exported OpenAPI file through a standard tool. Fetches Redocly's CLI
+# from npm, so it needs the network and is not part of `check`. Expect it to
+# say the description is valid, with warnings that are true and left alone:
+# the six list operations declare no 4XX (they have none), the server is
+# localhost, and the licence has no URL.
+lint-openapi:
+	npx --yes @redocly/cli@latest lint conformance/openapi.json
