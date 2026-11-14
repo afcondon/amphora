@@ -86,7 +86,8 @@ An identifier or a time that the store makes up is never asserted.
 | The PureScript client (`Hawser.Fetch.ask` over `Amphora.Api`) | PureScript | `make conformance`: `client.mjs` runs `Test.Client`, typed requests and typed answers against the real server |
 | Triggerfish: the shared library module, the ref-based libraries, Balistes, Conspicillum's shelf and library | PureScript | The compiler. Each request is an operation of `Amphora.Api`; none writes a path or a body |
 | Quadrat (`Quadrat.Declared`) | PureScript | The compiler, as above |
-| DeepStar (`internal/rig/amphora.go`) | Go | `make wire` there: its real client behind the witness |
+| Itajara's `daemon/scripts/latency.mjs` (the looper's latency record) | JavaScript | Its test behind the witness: `node conformance/witness.mjs --scratch --expect putContent,addLabel,addFavorite,listFavorites,getContent -- node --test ../../itajara/daemon/scripts/latency.test.mjs` |
+| Marquetry's `tools/publish_inventory.py` | Python | `make wire` there: its real client behind the witness |
 | Itajara's `publish-take.mjs` | JavaScript | Not held. It sends `putContent` and `addLabel` with declared fields, by reading |
 | `scripts/seed-balistes.mjs` here | JavaScript | Not held, and broken: it imports a Triggerfish module that has since moved to Reef |
 
